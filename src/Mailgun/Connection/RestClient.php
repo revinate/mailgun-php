@@ -3,36 +3,37 @@
 namespace Mailgun\Connection;
 
 use Guzzle\Http\Client as Guzzle;
+use Guzzle\Http\QueryAggregator\PhpAggregator;
 use Mailgun\MailgunClient;
 
 use Mailgun\Connection\Exceptions\GenericHTTPError;
-use Guzzle\Http\QueryAggregator\DuplicateAggregator;
 use Mailgun\Connection\Exceptions\InvalidCredentials;
 use Mailgun\Connection\Exceptions\NoDomainsConfigured;
 use Mailgun\Connection\Exceptions\MissingRequiredParameters;
 use Mailgun\Connection\Exceptions\MissingEndpoint;
 
-/* 
-   This class is a wrapper for the Guzzle (HTTP Client Library). 
+/*
+   This class is a wrapper for the Guzzle (HTTP Client Library).
 */
 
 class RestClient{
 
 	private $apiKey;
 	protected $mgClient;
-	
+
 	public function __construct($apiKey, $apiEndpoint, $apiVersion, $ssl){
 		$this->apiKey = $apiKey;
 		$this->mgClient = new Guzzle($this->generateEndpoint($apiEndpoint, $apiVersion, $ssl));
 		$this->mgClient->setDefaultOption('curl.options', array('CURLOPT_FORBID_REUSE' => true));
-		$this->mgClient->setDefaultOption('auth', array (API_USER, $this->apiKey));	
+		$this->mgClient->setDefaultOption('auth', array (API_USER, $this->apiKey));
 		$this->mgClient->setDefaultOption('exceptions', false);
+        $this->mgClient->setDefaultOption('proxy'   ,'127.0.0.1:8888' );//todo - revert')
 		$this->mgClient->setUserAgent(SDK_USER_AGENT . '/' . SDK_VERSION);
 	}
-	
+
 	public function post($endpointUrl, $postData = array(), $files = array()){
 		$request = $this->mgClient->post($endpointUrl, array(), $postData);
-		
+
 		if(isset($files["message"])){
 			foreach($files as $message){
 				$request->addPostFile("message", $message);
@@ -42,9 +43,9 @@ class RestClient{
 			foreach($files["attachment"] as $attachment){
 				// Backward compatibility code
 				if (is_array($attachment)){
-					$request->addPostFile("attachment", 
-										  $attachment['filePath'], null, 
-										  $attachment['remoteName']);	
+					$request->addPostFile("attachment",
+										  $attachment['filePath'], null,
+										  $attachment['remoteName']);
 				}
 				else{
 					$request->addPostFile("attachment", $attachment);
@@ -55,41 +56,41 @@ class RestClient{
 			foreach($files["inline"] as $inline){
 				// Backward compatibility code
 				if (is_array($inline)){
-					$request->addPostFile("inline", 
-										  $inline['filePath'], null, 
-										  $inline['remoteName']);	
+					$request->addPostFile("inline",
+										  $inline['filePath'], null,
+										  $inline['remoteName']);
 				}
 				else{
 					$request->addPostFile("inline", $inline);
-				}			
+				}
 			}
 		}
-		
-		$request->getPostFields()->setAggregator(new DuplicateAggregator());
+
+		$request->getPostFields()->setAggregator(new PhpAggregator());
 		$response = $request->send();
 		return $this->responseHandler($response);
 	}
-	
+
 	public function get($endpointUrl, $queryString = array()){
 		$request = $this->mgClient->get($endpointUrl);
 		if(isset($queryString)){
 			foreach($queryString as $key=>$value){
 				$request->getQuery()->set($key, $value);
-			}			
+			}
 		}
 		$response = $request->send();
 		return $this->responseHandler($response);
 	}
-	
+
 	public function delete($endpointUrl){
 		$request = $this->mgClient->delete($endpointUrl);
 		$response = $request->send();
-		return $this->responseHandler($response);	
+		return $this->responseHandler($response);
 	}
-	
+
 	public function put($endpointUrl, $putData){
 		$request = $this->mgClient->put($endpointUrl, array(), $putData);
-		$request->getPostFields()->setAggregator(new DuplicateAggregator());
+		$request->getPostFields()->setAggregator(new PhpAggregator());
 		$response = $request->send();
 		return $this->responseHandler($response);
 	}
